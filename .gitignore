@@ -1,0 +1,17 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Dogfooding — if this framework gets applied to its own repo, don't
+# check the generated state files into the framework source.
+/agent_docs/
+/CLAUDE.md.pre-init-backup*
+/agent_docs.pre-init-backup*/
