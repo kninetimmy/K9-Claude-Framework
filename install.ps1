@@ -3,13 +3,16 @@
     K9-Claude-Framework installer (Windows PowerShell).
 
 .DESCRIPTION
-    Copies the three commands from .\commands\ into
-    $env:USERPROFILE\.claude\commands\, backing up any pre-existing
-    versions, and writes a framework marker at
-    $env:USERPROFILE\.claude\.k9-framework-version.
+    Installs the three commands for Claude Code and/or Codex CLI,
+    depending on which are detected on the system.
 
-    Safe to re-run — each run backs up what's already there before
-    overwriting.
+    Claude Code: copies commands to $env:USERPROFILE\.claude\commands\ as .md files.
+    Codex CLI:   creates $env:USERPROFILE\.agents\skills\<name>\SKILL.md for each command.
+
+    Detection excludes Codex binaries cached inside .claude\plugins\,
+    since those are Claude Code plugin assets, not a standalone Codex install.
+
+    Safe to re-run — each run backs up pre-existing files before overwriting.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -32,35 +35,36 @@ if (-not (Test-Path $VersionFile -PathType Leaf)) {
 
 $FrameworkVersion = (Get-Content $VersionFile -Raw).Trim()
 
-# ---- locate install target ----------------------------------------
+# ---- detect installed CLIs ----------------------------------------
 
-$ClaudeDir   = Join-Path $env:USERPROFILE '.claude'
-$CommandsDst = Join-Path $ClaudeDir 'commands'
-$MarkerFile  = Join-Path $ClaudeDir '.k9-framework-version'
+$InstallClaude = $false
+$InstallCodex  = $false
 
-if (-not (Test-Path $CommandsDst)) {
-    New-Item -ItemType Directory -Path $CommandsDst -Force | Out-Null
+# Claude Code: ~/.claude/ directory is created on first launch
+$ClaudeDir = Join-Path $env:USERPROFILE '.claude'
+if (Test-Path $ClaudeDir -PathType Container) {
+    $InstallClaude = $true
 }
 
-# ---- install each command file ------------------------------------
-
-$Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$Today     = Get-Date -Format 'yyyy-MM-dd'
-$Installed = @()
-$BackedUp  = @()
-
-Get-ChildItem -Path $CommandsSrc -Filter '*.md' -File | ForEach-Object {
-    $src = $_.FullName
-    $dst = Join-Path $CommandsDst $_.Name
-
-    if (Test-Path $dst -PathType Leaf) {
-        $backup = "$dst.pre-k9-backup-$Timestamp"
-        Copy-Item -Path $dst -Destination $backup
-        $script:BackedUp += $backup
+# Codex CLI: ~/.codex/ config directory, OR a codex binary that is NOT
+# inside .claude\plugins\ (which is just a Claude Code plugin cache).
+$CodexDir = Join-Path $env:USERPROFILE '.codex'
+if (Test-Path $CodexDir -PathType Container) {
+    $InstallCodex = $true
+} else {
+    $codexCmd = Get-Command codex -ErrorAction SilentlyContinue
+    if ($codexCmd) {
+        $codexPath = $codexCmd.Source
+        if ($codexPath -notlike "*\.claude\plugins\*") {
+            $InstallCodex = $true
+        }
     }
+}
 
-    Copy-Item -Path $src -Destination $dst -Force
-    $script:Installed += $dst
+if (-not $InstallClaude -and -not $InstallCodex) {
+    Write-Error ("Neither Claude Code ($ClaudeDir) nor Codex CLI ($CodexDir) detected.`n" +
+                 "Install at least one CLI before running this installer.")
+    exit 1
 }
 
 # ---- detect source (git remote + commit SHA if available) ---------
@@ -87,19 +91,94 @@ if ($gitCmd) {
     }
 }
 
-# ---- write framework marker ---------------------------------------
+# ---- shared state -------------------------------------------------
 
-@"
+$Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$Today     = Get-Date -Format 'yyyy-MM-dd'
+$Installed = @()
+$BackedUp  = @()
+
+$MarkerContent = @"
 framework: K9-Claude-Framework
 version: $FrameworkVersion
 installed: $Today
 source: $SourceInfo
-"@ | Set-Content -Path $MarkerFile -Encoding UTF8
+"@
+
+# ---- install for Claude Code --------------------------------------
+
+if ($InstallClaude) {
+    $CommandsDst  = Join-Path $ClaudeDir 'commands'
+    $MarkerFile   = Join-Path $ClaudeDir '.k9-framework-version'
+
+    if (-not (Test-Path $CommandsDst)) {
+        New-Item -ItemType Directory -Path $CommandsDst -Force | Out-Null
+    }
+
+    Get-ChildItem -Path $CommandsSrc -Filter '*.md' -File | ForEach-Object {
+        $src = $_.FullName
+        $dst = Join-Path $CommandsDst $_.Name
+
+        if (Test-Path $dst -PathType Leaf) {
+            $backup = "$dst.pre-k9-backup-$Timestamp"
+            Copy-Item -Path $dst -Destination $backup
+            $script:BackedUp += $backup
+        }
+
+        Copy-Item -Path $src -Destination $dst -Force
+        $script:Installed += $dst
+    }
+
+    $MarkerContent | Set-Content -Path $MarkerFile -Encoding UTF8
+}
+
+# ---- install for Codex CLI ----------------------------------------
+
+if ($InstallCodex) {
+    $SkillsDir  = Join-Path $env:USERPROFILE '.agents\skills'
+    $MarkerFile = Join-Path $CodexDir '.k9-framework-version'
+
+    if (-not (Test-Path $SkillsDir)) {
+        New-Item -ItemType Directory -Path $SkillsDir -Force | Out-Null
+    }
+    # ~/.codex/ may not exist on a fresh Codex install that hasn't been
+    # launched yet; create it so the marker write succeeds.
+    if (-not (Test-Path $CodexDir)) {
+        New-Item -ItemType Directory -Path $CodexDir -Force | Out-Null
+    }
+
+    Get-ChildItem -Path $CommandsSrc -Filter '*.md' -File | ForEach-Object {
+        $src       = $_.FullName
+        $skillName = $_.BaseName              # strip .md → init-project, etc.
+        $skillDir  = Join-Path $SkillsDir $skillName
+        $skillDst  = Join-Path $skillDir 'SKILL.md'
+
+        if (-not (Test-Path $skillDir)) {
+            New-Item -ItemType Directory -Path $skillDir -Force | Out-Null
+        }
+
+        if (Test-Path $skillDst -PathType Leaf) {
+            $backup = "$skillDst.pre-k9-backup-$Timestamp"
+            Copy-Item -Path $skillDst -Destination $backup
+            $script:BackedUp += $backup
+        }
+
+        Copy-Item -Path $src -Destination $skillDst -Force
+        $script:Installed += $skillDst
+    }
+
+    $MarkerContent | Set-Content -Path $MarkerFile -Encoding UTF8
+}
 
 # ---- summary ------------------------------------------------------
 
 Write-Host ""
 Write-Host "K9-Claude-Framework $FrameworkVersion installed."
+Write-Host ""
+
+if ($InstallClaude) { Write-Host "  Claude Code -> $ClaudeDir\commands\" }
+if ($InstallCodex)  { Write-Host "  Codex CLI   -> $env:USERPROFILE\.agents\skills\" }
+
 Write-Host ""
 Write-Host "Installed:"
 foreach ($f in $Installed) { Write-Host "  $f" }
@@ -111,8 +190,11 @@ if ($BackedUp.Count -gt 0) {
 }
 
 Write-Host ""
-Write-Host "Marker written: $MarkerFile"
+if ($InstallClaude) { Write-Host "Marker written: $ClaudeDir\.k9-framework-version" }
+if ($InstallCodex)  { Write-Host "Marker written: $CodexDir\.k9-framework-version" }
+
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "  cd into any project and run /init-project in a Claude Code session."
-Write-Host "  Already initialized? Try /check-init to verify health."
+if ($InstallClaude) { Write-Host "  Claude Code -- cd into any project and run /init-project." }
+if ($InstallCodex)  { Write-Host "  Codex CLI   -- cd into any project and invoke `$init-project (or /skills picker)." }
+Write-Host "  Already initialized? Try the check-init command to verify health."
