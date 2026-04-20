@@ -1,35 +1,114 @@
 ---
-description: Bootstrap a new or cloned project with the project_docs framework (CLAUDE.md + agent_docs/)
+name: init-project
+description: Bootstrap a new or cloned project with the project_docs framework (CLAUDE.md or AGENTS.md + agent_docs/)
 framework: K9-Claude-Framework
-framework_version: 1.0.0
-command_version: 1.0.0
-last_updated: 2026-04-18
+framework_version: 1.1.0
+command_version: 1.1.0
+codex_skill_version: 1.1.0
+last_updated: 2026-04-19
 ---
 
 Set up this project with the project_docs framework: a lightweight
-session-continuity system split across `CLAUDE.md` and four files in
+session-continuity system split across `$CONTEXT_FILE` and four files in
 `agent_docs/`.
+
+## CLI Detection
+
+Run this block first, before any other step. The variable table it produces
+is the only source of CLI-specific values used throughout this command —
+never hardcode paths or filenames inline.
+
+**Signal 1 — `CLAUDECODE` env var (most reliable).**
+Run: `echo "${CLAUDECODE}"`
+- Output is `1` → **Claude Code confirmed.** Set the variable table and proceed.
+- Output is empty → not in a Claude Code session. Continue to Signal 2.
+
+**Signal 2 — `~/.codex/` directory.**
+Run: `test -d "${HOME}/.codex" && echo "exists" || echo "absent"`
+- `exists` → **Codex CLI confirmed.** Set the variable table and proceed.
+- `absent` → continue to Signal 3.
+
+**Signal 3 — `codex` binary (excluding Claude plugin cache).**
+Run: `command -v codex 2>/dev/null | grep -v '\.claude/plugins' || echo "absent"`
+- Non-empty path (not `absent`) → **Codex CLI confirmed.** Set variables and proceed.
+- `absent` → continue to Signal 4.
+
+**Signal 4 — Framework marker files.**
+Run: `ls "${HOME}/.claude/.k9-framework-version" 2>/dev/null && echo "claude" || echo "absent"`
+Run: `ls "${HOME}/.codex/.k9-framework-version" 2>/dev/null && echo "codex" || echo "absent"`
+- One file exists → that CLI. If both exist, the one more recently modified wins
+  (`ls -t "${HOME}/.claude/.k9-framework-version" "${HOME}/.codex/.k9-framework-version" 2>/dev/null | head -1`).
+
+**Signal 5 — Fallback.**
+None of the above matched. Ask: "I could not detect your CLI environment.
+Are you running Claude Code or Codex? Reply `claude-code` or `codex`."
+Wait for response before continuing.
+
+---
+
+### Variable table
+
+Once the CLI is identified, set every value below. Reference **only** these
+variables in subsequent steps — never substitute CLI names or paths inline.
+
+| Variable                | Claude Code                          | Codex                                  |
+|-------------------------|--------------------------------------|----------------------------------------|
+| `$CLI`                  | `claude-code`                        | `codex`                                |
+| `$CONTEXT_FILE`         | `CLAUDE.md`                          | `AGENTS.md`                            |
+| `$OTHER_CONTEXT_FILE`   | `AGENTS.md`                          | `CLAUDE.md`                            |
+| `$COMMANDS_DIR`         | `~/.claude/commands/`                | `~/.agents/skills/`                    |
+| `$MARKER_FILE`          | `~/.claude/.k9-framework-version`    | `~/.codex/.k9-framework-version`       |
+| `$INVOKE_INIT`          | `/init-project`                      | `$init-project` (or `/skills` picker)  |
+| `$INVOKE_WRAP`          | `/wrap-up`                           | `$wrap-up` (or `/skills` picker)       |
+| `$INVOKE_CHECK`         | `/check-init`                        | `$check-init` (or `/skills` picker)    |
+
+---
 
 ## Steps
 
 1. **Detect whether the project is already initialized.** Check for
    `agent_docs/.init-version`.
-   - If it exists and the structure matches the current framework
-     (all four `project_*.md` files present, `CLAUDE.md` has the
-     expected pointers to them), refuse politely. Tell me to use
-     `/wrap-up` to update state, or `/check-init` to verify health.
-     Stop here.
-   - If `.init-version` exists but the structure has drifted (files
-     missing, `CLAUDE.md` missing pointers), show me what's out of
-     spec and offer two choices: (a) nuke `agent_docs/` + `CLAUDE.md`
-     and re-bootstrap from scratch, or (b) leave everything alone
-     and exit. No silent migration. Wait for my pick.
+
+   **If `.init-version` exists, evaluate these cases in order:**
+
+   - **Already initialized for current CLI:** All four `project_*.md`
+     files are present AND `$CONTEXT_FILE` exists with pointers to all
+     four files → refuse politely. Tell me to use `$INVOKE_WRAP` to
+     update state, or `$INVOKE_CHECK` to verify health. Stop here.
+
+   - **Cross-CLI scenario:** `$CONTEXT_FILE` is absent, but
+     `$OTHER_CONTEXT_FILE` exists and references
+     `agent_docs/project_state.md`. The project was initialized for
+     the other CLI. Offer:
+     > "This project is already initialized for the other CLI
+     > (`$OTHER_CONTEXT_FILE` + `agent_docs/`). Add `$CLI` support
+     > by writing `$CONTEXT_FILE` alongside it?"
+     - **(a) Yes** — read the existing `agent_docs/project_arch.md`
+       and `agent_docs/project_state.md` for context, draft only
+       `$CONTEXT_FILE` (using the template below), show it for
+       approval, then write it. Do NOT touch `agent_docs/` or
+       `$OTHER_CONTEXT_FILE`. Skip to Step 7 (approval gate). After
+       writing, remind me that both CLIs now share the same
+       `agent_docs/` — `$INVOKE_WRAP` updates work regardless of
+       which CLI I use.
+     - **(b) No** — exit without changes.
+     Wait for my pick before continuing.
+
+   - **Drifted:** `.init-version` exists, `$CONTEXT_FILE` is missing or
+     missing pointers, AND the cross-CLI condition above does not apply.
+     Show me what's out of spec and offer two choices: **(a) nuke**
+     `agent_docs/` + `$CONTEXT_FILE` and re-bootstrap from scratch, or
+     **(b) leave everything alone** and exit. No silent migration. Wait
+     for my pick.
      - If I pick (a), tell me up front exactly what will happen:
        the existing `agent_docs/` folder will be backed up as
-       `agent_docs.pre-init-backup/` (preserving full structure), and
-       `CLAUDE.md` will be backed up as `CLAUDE.md.pre-init-backup`,
-       before anything is deleted. If those backup paths already
-       exist from a previous init, append a date suffix
+       `agent_docs.pre-init-backup/` (preserving full structure),
+       `$CONTEXT_FILE` will be backed up as
+       `$CONTEXT_FILE.pre-init-backup` (if it exists), **and
+       `$OTHER_CONTEXT_FILE` will be backed up as
+       `$OTHER_CONTEXT_FILE.pre-init-backup`** (if it exists), before
+       anything is deleted. If those backup paths already exist from a
+       previous init, append a date suffix
        (`agent_docs.pre-init-backup-YYYY-MM-DD/`); if that also
        exists, append a counter (`-YYYY-MM-DD-2/`, `-3/`, …).
 
@@ -37,7 +116,7 @@ session-continuity system split across `CLAUDE.md` and four files in
    decide which path this is:
    - **Brand new** — mostly empty folder, no source, no README.
    - **Existing cloned repo** — has source, README, build configs,
-     and/or an existing `CLAUDE.md`.
+     and/or an existing `$CONTEXT_FILE`.
 
 3. **Foreign session-continuity scan (cloned repos only).** Skip for
    brand-new projects and for repos already initialized with this
@@ -55,11 +134,21 @@ session-continuity system split across `CLAUDE.md` and four files in
      context files like `.claude/context.md` or `.claude/notes.md`,
      not just `settings.json` / `commands/`.)
    - Files matching: `*state*.md`, `*context*.md`, `*memory*.md`,
-     `CONTEXT.md`, `NOTES.md`, `AGENT*.md`, `AGENTS.md`,
-     `.cursorrules`, `.windsurfrules`, `GEMINI.md`.
-   - Any existing `CLAUDE.md` that does NOT reference
-     `agent_docs/project_state.md` (i.e., a foreign `CLAUDE.md` not
-     written by this framework).
+     `CONTEXT.md`, `NOTES.md`, `.cursorrules`, `.windsurfrules`,
+     `GEMINI.md`.
+   - `AGENT*.md` files and `AGENTS.md`:
+     - If `$CLI == claude-code`: flag `AGENTS.md` and `AGENT*.md` as
+       foreign signals. Only exception: if `AGENTS.md` references
+       `agent_docs/project_state.md`, it was written by this framework
+       in a prior Codex session — treat it as a potential migration
+       candidate, not a foreign system.
+     - If `$CLI == codex`: `AGENTS.md` is this framework's own context
+       file. Only flag it as foreign if it exists and does NOT reference
+       `agent_docs/project_state.md`.
+   - `CLAUDE.md`: flag as foreign only if it does NOT reference
+     `agent_docs/project_state.md`. (Same logic for both CLIs — a
+     framework-written `CLAUDE.md` from a prior Claude Code session is
+     a migration candidate, not a foreign system.)
 
    If nothing matches, proceed silently to the next step.
 
@@ -117,7 +206,7 @@ session-continuity system split across `CLAUDE.md` and four files in
    interrogating.
 
 6. **Draft all files.** Produce drafts of:
-   - `CLAUDE.md` (template below)
+   - `$CONTEXT_FILE` (template below — use the section matching `$CLI`)
    - `agent_docs/project_state.md` — skeleton, seeded with one "Last
      session" entry: `YYYY-MM-DD — Initialized project_docs
      framework.` If migrate was chosen in the foreign-system scan,
@@ -149,19 +238,26 @@ session-continuity system split across `CLAUDE.md` and four files in
      `agent_docs.pre-init-backup-YYYY-MM-DD/`; if that also exists,
      append `-2/`, `-3/`, etc. Only after the backup completes,
      remove the old `agent_docs/`.
-   - If a `CLAUDE.md` already existed at the project root, back it
-     up as `CLAUDE.md.pre-init-backup` before overwriting. (Use the
-     same date/counter fallback if a backup already exists.)
+   - Back up any existing context files before overwriting: if
+     `$CONTEXT_FILE` exists, back it up as
+     `$CONTEXT_FILE.pre-init-backup`; if `$OTHER_CONTEXT_FILE` exists,
+     back it up as `$OTHER_CONTEXT_FILE.pre-init-backup`. (Use the
+     same date/counter fallback for each if a backup already exists.)
    - Create `agent_docs/` if needed.
    - Write all five content files and `.init-version`.
    - Tell me what was written, explicitly list every backup path
-     that was created (both `agent_docs/` and `CLAUDE.md`), and
-     remind me that `/wrap-up` now routes updates across the four
-     files.
+     that was created, and remind me that `$INVOKE_WRAP` now routes
+     updates across the four files.
 
 ## Templates
 
-### `CLAUDE.md` (lightweight pointer, not an architecture dump)
+### `$CONTEXT_FILE` (lightweight pointer, not an architecture dump)
+
+Use the template that matches `$CLI`:
+
+---
+
+**If `$CLI == claude-code` — write as `CLAUDE.md`:**
 
 ```markdown
 # <project name>
@@ -187,6 +283,37 @@ dashboard. Load on demand when the task calls for it:
 <things that affect how Claude behaves in this project — not what
 the project is. Leave blank if nothing special.>
 ```
+
+---
+
+**If `$CLI == codex` — write as `AGENTS.md`:**
+
+```markdown
+# <project name>
+
+<1–2 sentence description>
+
+## Session continuity
+
+At the start of every session, read `agent_docs/project_state.md` —
+it is the dashboard. Load on demand when the task calls for it:
+- `agent_docs/project_arch.md` — architecture, stack, layout. The
+  source of truth for how the project is built.
+- `agent_docs/project_decisions.md` — locked-in decisions,
+  append-only.
+- `agent_docs/project_backlog.md` — planned work.
+
+## Build / test / run
+
+<commands from detection or interview>
+
+## Project-specific instructions
+
+<things that affect how this agent behaves in this project — not what
+the project is. Leave blank if nothing special.>
+```
+
+---
 
 ### `project_state.md` (target ~50 lines, ceiling ~100)
 
@@ -247,7 +374,7 @@ decisions are new dated entries that reference the old one.
 ---
 
 ## YYYY-MM-DD — Initialized project_docs framework
-- Adopted the project_docs session-continuity framework: `CLAUDE.md`
+- Adopted the project_docs session-continuity framework: `$CONTEXT_FILE`
   + `agent_docs/` split across state / backlog / decisions / arch.
 ```
 
@@ -287,6 +414,6 @@ established.>
 - Bias toward less content. Skeleton files are fine; padding them
   with fake content is not. No lorem ipsum, no placeholder TODOs
   left behind.
-- Don't run `/wrap-up` or `/clear` automatically — always tell me to
+- Don't run `$INVOKE_WRAP` or `/clear` automatically — always tell me to
   do it.
 - If something's ambiguous, ask rather than guess.

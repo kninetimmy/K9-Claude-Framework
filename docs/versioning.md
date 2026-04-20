@@ -36,35 +36,43 @@ commands.
 
 ## Where versions live — at a glance
 
-| Location                                   | What it stores                                                           |
-|--------------------------------------------|--------------------------------------------------------------------------|
-| `VERSION`                                  | Current `framework_version` of the repo                                  |
-| `commands/*.md` frontmatter                | `framework_version`, `command_version`, `last_updated`                   |
-| `~/.claude/commands/*.md` (after install)  | Same frontmatter, carried over from the repo by the installer           |
-| `~/.claude/.k9-framework-version`          | Installed `framework_version`, install date, source (git remote + SHA)   |
-| `CHANGELOG.md`                             | Human-readable history per framework release                            |
+| Location                                          | What it stores                                                          |
+|---------------------------------------------------|-------------------------------------------------------------------------|
+| `VERSION`                                         | Current `framework_version` of the repo                                 |
+| `commands/*.md` frontmatter                       | `framework_version`, `command_version`, `codex_skill_version`, `last_updated` |
+| `~/.claude/commands/*.md` (after install)         | Same frontmatter, carried over by the installer (Claude Code)           |
+| `~/.agents/skills/*/SKILL.md` (after install)     | Same frontmatter, carried over by the installer (Codex)                 |
+| `~/.claude/.k9-framework-version`                 | Installed version, install date, source — Claude Code install           |
+| `~/.codex/.k9-framework-version`                  | Installed version, install date, source — Codex install                 |
+| `CHANGELOG.md`                                    | Human-readable history per framework release                            |
 
-## How `/check-init` reports versions
+## How `/check-init` (or `$check-init`) reports versions
 
-`/check-init` now surfaces version info at the end of its report:
+The command surfaces version info at the end of its report. Example
+for a Claude Code install:
 
 ```
-Framework: K9-Claude-Framework 1.0.0
-  installed: 2026-04-18
+Framework: K9-Claude-Framework 1.1.0
+  installed: 2026-04-19
   source: https://github.com/kninetimmy/K9-Claude-Framework@a3f2b1c
-Commands:
-  init-project.md  — framework 1.0.0 / command 1.0.0 (2026-04-18)
-  wrap-up.md       — framework 1.0.0 / command 1.0.0 (2026-04-18)
-  check-init.md    — framework 1.0.0 / command 1.0.0 (2026-04-18)
+Commands (Claude Code):
+  init-project.md  — framework 1.1.0 / command 1.1.0 (2026-04-19)
+  wrap-up.md       — framework 1.1.0 / command 1.1.0 (2026-04-19)
+  check-init.md    — framework 1.1.0 / command 1.1.0 (2026-04-19)
 ```
+
+If both `~/.claude/.k9-framework-version` and
+`~/.codex/.k9-framework-version` exist, both installs are reported. A
+version mismatch between them is informational — you may have updated
+one CLI's install without the other.
 
 If the `framework_version` field differs across the three installed
-command files, `/check-init` flags it as Yellow — that usually means
-a partial install or a mid-update.
+command files for the same CLI, `/check-init` flags it as Yellow —
+that usually means a partial install or a mid-update.
 
-If a command file has no frontmatter at all (e.g. a copy of the
-commands from before this framework existed), `/check-init` notes
-that too and suggests re-running the installer.
+If a command file has no frontmatter at all (e.g. a copy from before
+this framework existed), `/check-init` notes that and suggests
+re-running the installer.
 
 ## Updating — pull-based, on purpose
 
@@ -85,12 +93,12 @@ The installer:
 
 1. Backs up any existing command file as
    `<name>.pre-k9-backup-<timestamp>` (keeps every prior version).
-2. Writes the new command files in place.
-3. Rewrites `~/.claude/.k9-framework-version` with the new version,
-   install date, and current git remote + commit SHA.
+2. Writes the new command files to all detected CLI targets.
+3. Rewrites the framework marker file(s) with the new version, install
+   date, and current git remote + commit SHA.
 
-After update, `/check-init` inside any project will now report the
-new framework version.
+After update, running the health check command inside any project will
+report the new framework version.
 
 ### Why pull-based
 

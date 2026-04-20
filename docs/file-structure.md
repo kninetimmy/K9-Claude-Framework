@@ -1,10 +1,12 @@
 # File structure
 
-After `/init-project`, a project using this framework has:
+After `/init-project` (or `$init-project`), a project using this
+framework has:
 
 ```
 <project root>/
-├── CLAUDE.md                       # thin pointer, auto-loads at session start
+├── CLAUDE.md                       # thin pointer for Claude Code
+├── AGENTS.md                       # thin pointer for Codex (same role)
 └── agent_docs/
     ├── .init-version               # framework marker
     ├── project_state.md            # dashboard — always loaded
@@ -13,18 +15,29 @@ After `/init-project`, a project using this framework has:
     └── project_arch.md             # architecture reference — loaded on demand
 ```
 
+`CLAUDE.md` and `AGENTS.md` are not both required — only the one(s)
+matching the CLI(s) you use will be present. A project can have both
+if it's shared across teams using different CLIs; they point to the
+same `agent_docs/` folder.
+
 This doc is the reference for what goes in each file, when it gets
 loaded, and what does *not* belong in it.
 
 ---
 
-## `CLAUDE.md` (project root)
+## `CLAUDE.md` / `AGENTS.md` (project root)
 
-**Purpose.** Claude Code's native entry point. Auto-loaded at session
-start. In this framework, it's a thin pointer — it tells Claude where
+**Purpose.** The CLI's native entry point. Auto-loaded at session
+start. In this framework it's a thin pointer — it tells the CLI where
 the real content lives rather than duplicating it inline.
 
-**Loaded.** Every session, automatically, by Claude Code itself.
+`CLAUDE.md` is for Claude Code; `AGENTS.md` is the equivalent for
+Codex CLI. Their content is nearly identical — the only difference is
+that Claude Code supports native `@path` imports for auto-loading
+`project_state.md`, while `AGENTS.md` uses a text instruction to the
+same effect.
+
+**Loaded.** Every session, automatically, by the CLI itself.
 
 **Sections.**
 - Project name + 1–2 sentence description

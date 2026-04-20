@@ -1,13 +1,74 @@
 ---
+name: wrap-up
 description: Summarize this session and route updates across the agent_docs/ four-file framework
 framework: K9-Claude-Framework
-framework_version: 1.0.0
-command_version: 1.0.0
-last_updated: 2026-04-18
+framework_version: 1.1.0
+command_version: 1.1.0
+codex_skill_version: 1.1.0
+last_updated: 2026-04-19
 ---
 
 Update the agent_docs/ framework to capture this session's work, so a
-fresh Claude instance can pick up cleanly after `/clear`.
+fresh instance can pick up cleanly after starting a new session.
+
+## CLI Detection
+
+Run this block first, before any other step. The variable table it produces
+is the only source of CLI-specific values used throughout this command —
+never hardcode paths or filenames inline.
+
+**Signal 1 — `CLAUDECODE` env var (most reliable).**
+Run: `echo "${CLAUDECODE}"`
+- Output is `1` → **Claude Code confirmed.** Set the variable table and proceed.
+- Output is empty → not in a Claude Code session. Continue to Signal 2.
+
+**Signal 2 — `~/.codex/` directory.**
+Run: `test -d "${HOME}/.codex" && echo "exists" || echo "absent"`
+- `exists` → **Codex CLI confirmed.** Set the variable table and proceed.
+- `absent` → continue to Signal 3.
+
+**Signal 3 — `codex` binary (excluding Claude plugin cache).**
+Run: `command -v codex 2>/dev/null | grep -v '\.claude/plugins' || echo "absent"`
+- Non-empty path (not `absent`) → **Codex CLI confirmed.** Set variables and proceed.
+- `absent` → continue to Signal 4.
+
+**Signal 4 — Framework marker files.**
+Run: `ls "${HOME}/.claude/.k9-framework-version" 2>/dev/null && echo "claude" || echo "absent"`
+Run: `ls "${HOME}/.codex/.k9-framework-version" 2>/dev/null && echo "codex" || echo "absent"`
+- One file exists → that CLI. If both exist, the one more recently modified wins
+  (`ls -t "${HOME}/.claude/.k9-framework-version" "${HOME}/.codex/.k9-framework-version" 2>/dev/null | head -1`).
+
+**Signal 5 — Project context file.**
+Check which framework context file exists at the project root:
+Run: `ls CLAUDE.md AGENTS.md 2>/dev/null`
+- Only `CLAUDE.md` found → **Claude Code.**
+- Only `AGENTS.md` found → **Codex CLI.**
+- Both found → the one that references `agent_docs/project_state.md` was written
+  by this framework; prefer it. If both reference it, fall back to Signal 6.
+
+**Signal 6 — Fallback.**
+None of the above matched. Ask: "I could not detect your CLI environment.
+Are you running Claude Code or Codex? Reply `claude-code` or `codex`."
+Wait for response before continuing.
+
+---
+
+### Variable table
+
+Once the CLI is identified, set every value below. Reference **only** these
+variables in subsequent steps — never substitute CLI names or paths inline.
+
+| Variable         | Claude Code                          | Codex                                  |
+|------------------|--------------------------------------|----------------------------------------|
+| `$CLI`           | `claude-code`                        | `codex`                                |
+| `$CONTEXT_FILE`  | `CLAUDE.md`                          | `AGENTS.md`                            |
+| `$COMMANDS_DIR`  | `~/.claude/commands/`                | `~/.agents/skills/`                    |
+| `$MARKER_FILE`   | `~/.claude/.k9-framework-version`    | `~/.codex/.k9-framework-version`       |
+| `$INVOKE_INIT`   | `/init-project`                      | `$init-project` (or `/skills` picker)  |
+| `$INVOKE_WRAP`   | `/wrap-up`                           | `$wrap-up` (or `/skills` picker)       |
+| `$INVOKE_CHECK`  | `/check-init`                        | `$check-init` (or `/skills` picker)    |
+
+---
 
 ## Steps
 
@@ -16,10 +77,10 @@ fresh Claude instance can pick up cleanly after `/clear`.
    - If `.init-version` is missing but a single
      `agent_docs/project_state.md` exists (old format), fall back to
      the old wrap-up behavior: update that one file only. Then
-     suggest I run `/init-project` to migrate to the four-file
+     suggest I run `$INVOKE_INIT` to migrate to the four-file
      framework.
    - If nothing exists, stop. Tell me. Ask if I want to run
-     `/init-project`, or if this is a repo where state tracking
+     `$INVOKE_INIT`, or if this is a repo where state tracking
      isn't set up.
 
 2. **Read all four files** so you know what's already there and
@@ -77,9 +138,9 @@ fresh Claude instance can pick up cleanly after `/clear`.
 
 7. **Write the approved files.**
 
-8. **Remind me what's next.** Tell me I can now `/clear` (or exit
-   and restart `claude`). Don't run `/clear` yourself — that's my
-   call.
+8. **Remind me what's next.** Tell me I can now start a new session
+   (Claude Code: `/clear` or restart `claude`; Codex: start a new
+   session). Don't run `/clear` yourself — that's my call.
 
 ## Notes
 
@@ -89,8 +150,8 @@ fresh Claude instance can pick up cleanly after `/clear`.
 - If I worked on something that shouldn't go in the state doc
   (experiments, throwaway branches, personal scratch), ask before
   including it.
-- Claude summarizing its own session unsupervised is where
-  hallucinated accomplishments creep in. The approval gate is the
-  defense — don't skip it.
+- Summarizing a session unsupervised is where hallucinated
+  accomplishments creep in. The approval gate is the defense —
+  don't skip it.
 - Don't touch `project_arch.md` for routine session updates. It's
   the stable reference. Only architectural shifts belong there.
