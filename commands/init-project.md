@@ -244,7 +244,7 @@ variables in subsequent steps — never substitute CLI names or paths inline.
      back it up as `$OTHER_CONTEXT_FILE.pre-init-backup`. (Use the
      same date/counter fallback for each if a backup already exists.)
    - Create `agent_docs/` if needed.
-   - Write all five content files and `.init-version`.
+   - Write the approved content files.
    - Tell me what was written, explicitly list every backup path
      that was created, and remind me that `$INVOKE_WRAP` now routes
      updates across the four files.
