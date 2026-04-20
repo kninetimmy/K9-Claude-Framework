@@ -2,7 +2,7 @@
 name: wrap-up
 description: Summarize this session and route updates across the agent_docs/ four-file framework
 framework: K9-Claude-Framework
-framework_version: 1.1.0
+framework_version: 1.1.1
 command_version: 1.1.0
 codex_skill_version: 1.1.0
 last_updated: 2026-04-19
