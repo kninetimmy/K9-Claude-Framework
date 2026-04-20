@@ -2,9 +2,9 @@
 name: init-project
 description: Bootstrap a new or cloned project with the project_docs framework (CLAUDE.md or AGENTS.md + agent_docs/)
 framework: K9-Claude-Framework
-framework_version: 1.1.0
-command_version: 1.1.0
-codex_skill_version: 1.1.0
+framework_version: 1.1.1
+command_version: 1.1.1
+codex_skill_version: 1.1.1
 last_updated: 2026-04-19
 ---
 

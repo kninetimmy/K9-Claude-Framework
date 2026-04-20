@@ -2,7 +2,7 @@
 name: check-init
 description: Read-only health check of the project_docs framework in this project
 framework: K9-Claude-Framework
-framework_version: 1.1.0
+framework_version: 1.1.1
 command_version: 1.1.0
 codex_skill_version: 1.1.0
 last_updated: 2026-04-19

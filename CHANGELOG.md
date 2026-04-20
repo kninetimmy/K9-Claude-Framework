@@ -4,6 +4,18 @@ All notable changes to K9-Claude-Framework are documented here. Format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-04-20
+
+### Fixed
+- `init-project` Step 8 no longer instructs the agent to write all five
+  content files unconditionally. In the cross-CLI path, only `$CONTEXT_FILE`
+  is approved; the previous wording could cause skeleton templates to
+  overwrite existing `agent_docs/` files. Changed to "Write the approved
+  content files."
+- VERSION and command frontmatters now correctly reflect the patch version.
+
+---
+
 ## [1.1.0] — 2026-04-19
 
 ### Added
