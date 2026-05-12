@@ -2,10 +2,10 @@
 name: init-project
 description: Bootstrap a new or cloned project with the project_docs framework (CLAUDE.md or AGENTS.md + agent_docs/)
 framework: K9-Claude-Framework
-framework_version: 1.1.1
-command_version: 1.1.1
-codex_skill_version: 1.1.1
-last_updated: 2026-04-19
+framework_version: 1.2.0
+command_version: 1.2.0
+codex_skill_version: 1.2.0
+last_updated: 2026-05-12
 ---
 
 Set up this project with the project_docs framework: a lightweight
@@ -248,6 +248,17 @@ variables in subsequent steps — never substitute CLI names or paths inline.
    - Tell me what was written, explicitly list every backup path
      that was created, and remind me that `$INVOKE_WRAP` now routes
      updates across the four files.
+   - **memhub coexistence check.** If `.memhub/` exists at the repo
+     root (test: `test -d .memhub && echo present || echo absent`),
+     the repo also uses memhub for structured project memory. The
+     newly-written `$CONTEXT_FILE` will not yet contain memhub's
+     `<!-- memhub:managed:start -->` block — memhub regenerates that
+     block on demand and a fresh init can't carry it forward safely
+     (the old data may be stale). Remind me to run `memhub sync-md`
+     to repopulate the managed block. If `command -v memhub` fails,
+     skip this reminder silently — `.memhub/` may have been carried
+     in by a clone from a machine that has memhub installed but this
+     machine doesn't.
 
 ## Templates
 

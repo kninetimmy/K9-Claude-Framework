@@ -169,6 +169,40 @@ Pick the tool that matches the size of your problem. This one is
 aimed at solo developers and small teams working one repo at a time
 with an LLM CLI as the primary assistant.
 
+## Pairs with memhub
+
+K9 handles the *narrative* side of session continuity — four Markdown files
+under `agent_docs/` plus a thin context file at the project root. If you also
+want the *structured* side — a queryable, auditable per-repo database of
+facts, decisions, tasks, and command history — pair K9 with
+[memhub](https://github.com/kninetimmy/memhub), a local-first Rust CLI for
+durable per-repo project memory. Both tools run fine on their own; together
+they form a Markdown-for-humans / SQLite-for-queries split.
+
+What happens when both are installed:
+
+- `memhub init` detects K9 by the presence of `agent_docs/project_state.md`
+  and writes `[integrations.k9]` into `.memhub/config.toml`.
+- `/wrap-up` (K9 1.2.0+) runs `memhub integrations check-k9` near the top.
+  When the gate returns 0, the approval gate covers a "memhub mirror plan"
+  alongside the Markdown drafts. After approval, K9 shells out to memhub
+  with `--actor k9:wrap-up` to mirror approved decisions, tasks, and facts
+  into durable tables, then writes Markdown second. Any memhub failure
+  hard-aborts the wrap-up before Markdown is touched, so the two views
+  can't drift mid-write.
+- After the four-file writes, K9 runs `memhub sync-md` to refresh the
+  `<!-- memhub:managed:start -->` block in `CLAUDE.md` / `AGENTS.md`.
+- `/check-init` reports memhub health alongside K9 health when `.memhub/`
+  is present. Findings stay Yellow at most — memhub is optional.
+
+If memhub isn't installed or the gate returns non-zero, K9 behaves exactly
+as it does without memhub: pure-Markdown flow, no DB writes, no `sync-md`.
+The integration is purely opportunistic.
+
+The CLI contract between the two tools (gate semantics, JSON shapes, exit
+codes, audit actor) is versioned and lives in memhub's repo at
+`docs/reference/k9-wrap-up-contract.md`.
+
 ## Design philosophy
 
 The short version: curate, don't accumulate; human approval on every

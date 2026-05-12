@@ -13,5 +13,8 @@ desktop.ini
 # Dogfooding — if this framework gets applied to its own repo, don't
 # check the generated state files into the framework source.
 /agent_docs/
+/AGENTS.md
+/CLAUDE.md
+/AGENTS.md.pre-init-backup*
 /CLAUDE.md.pre-init-backup*
 /agent_docs.pre-init-backup*/

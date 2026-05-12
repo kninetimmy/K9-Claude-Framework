@@ -4,6 +4,46 @@ All notable changes to K9-Claude-Framework are documented here. Format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-05-12
+
+### Added
+- Optional memhub interop for `/wrap-up`, `/init-project`, and `/check-init`.
+  When the `memhub` binary is on `PATH` and `memhub integrations check-k9`
+  returns 0 in the current repo, K9 mirrors approved structured updates
+  (decisions, tasks, facts) into memhub's local SQLite store with
+  `--actor k9:wrap-up`, then runs `memhub sync-md` to refresh the
+  `<!-- memhub:managed:start -->` block in the context file. Pure-Markdown
+  behavior is preserved when memhub is absent or the gate returns non-zero
+  — no changes to the K9 standalone flow.
+- `/wrap-up` now fetches pending memhub proposals via
+  `memhub review list --status pending --json` during draft assembly and
+  surfaces them in the per-file approval gate as `memhub review accept`
+  or `memhub review reject` candidates.
+- `/wrap-up` enforces "DB writes first, Markdown writes second" sequencing
+  per the v1 memhub `/wrap-up` contract. Any non-zero exit from a memhub
+  mutating command is a hard abort before any `agent_docs/*.md` write.
+- `/init-project` reminds the user to run `memhub sync-md` after re-writing
+  `$CONTEXT_FILE` (nuke and cross-CLI paths) when `.memhub/` exists, so the
+  managed block is regenerated rather than left out.
+- `/check-init` reports memhub health (presence of `.memhub/`, binary
+  install, integration enabled/disabled, managed-block markers, drift
+  notes) when memhub signals are detected. Memhub findings are Yellow at
+  most — memhub is optional and its absence is never a finding.
+- README section "Pairs with memhub" describing the integration model.
+
+### Changed
+- Bumped `framework_version` to `1.2.0` and per-command `command_version`
+  and `codex_skill_version` to `1.2.0` across all three commands. Frontmatter
+  `last_updated` set to `2026-05-12`.
+
+### Compatibility
+- Fully additive. K9 standalone behavior is unchanged when memhub is not
+  installed or `memhub integrations check-k9` returns non-zero. Projects
+  initialized under earlier K9 versions continue to work without
+  modification.
+
+---
+
 ## [1.1.1] — 2026-04-20
 
 ### Fixed

@@ -2,10 +2,10 @@
 name: check-init
 description: Read-only health check of the project_docs framework in this project
 framework: K9-Claude-Framework
-framework_version: 1.1.1
-command_version: 1.1.0
-codex_skill_version: 1.1.0
-last_updated: 2026-04-19
+framework_version: 1.2.0
+command_version: 1.2.0
+codex_skill_version: 1.2.0
+last_updated: 2026-05-12
 ---
 
 Verify this project's project_docs framework is healthy. Read-only —
@@ -116,7 +116,45 @@ For command file paths (used in Step 6), derive from `$CLI`:
    lorem-ipsum text that should've been replaced during init. List
    each hit with its file and line.
 
-6. **Framework version report.** Gather version info from the
+6. **memhub coexistence check (read-only, optional).** memhub is an
+   optional companion CLI that stores structured project memory in
+   `.memhub/project.sqlite`. If it's present in this repo, surface
+   its health alongside the K9 health. Skip entirely if no memhub
+   signals are found — its absence is not a finding.
+
+   Probes (run them all, then summarize):
+   - `test -d .memhub && echo present || echo absent` — is the repo
+     memhub-initialized?
+   - `command -v memhub >/dev/null 2>&1 && echo present || echo absent`
+     — is the binary installed?
+   - If both above are `present`, run `memhub integrations status`
+     and capture its output. Look for the `K9 detected` and
+     `K9 integration` lines.
+   - Read whichever context file is present and check for the
+     `<!-- memhub:managed:start -->` / `<!-- memhub:managed:end -->`
+     marker pair. Both must be present and in that order to be valid.
+
+   Findings to report (each is informational unless marked):
+   - `.memhub/` present, binary absent → note that memhub data exists
+     locally but no CLI is installed on this machine. Informational.
+   - `.memhub/` present, binary present, `memhub integrations status`
+     shows `K9 detected: yes / K9 integration: enabled` → Green for
+     memhub. Note the `agent_docs_path`.
+   - `K9 detected: yes` but `K9 integration: disabled` → Yellow
+     (memhub flag points at this repo but is disabled). Suggested
+     fix: `memhub integrations enable-k9`.
+   - `K9 enabled in config but agent_docs/project_state.md is missing`
+     drift note in status → Yellow. Suggested fix: either re-run
+     `$INVOKE_INIT` or `memhub integrations disable-k9`.
+   - `.memhub/` present and context file lacks the managed block
+     markers → Yellow. Suggested fix: run `memhub sync-md`.
+   - Managed block marker pair is mismatched or out of order →
+     Yellow. The block must be regenerated; manual edits can corrupt
+     it. Suggested fix: `memhub sync-md`.
+   - `.memhub/` absent → skip this entire section. Do not warn that
+     memhub is missing — it's optional.
+
+7. **Framework version report.** Gather version info from the
    installed framework and include it in the final report:
    - Read the YAML frontmatter of each installed command file.
      For Claude Code, read:
@@ -147,16 +185,21 @@ For command file paths (used in Step 6), derive from `$CLI`:
      versions remotely. Updating is manual: `git pull` the framework
      repo and re-run its installer.
 
-7. **Report.** Summarize as one of:
+8. **Report.** Summarize as one of:
    - **Green** — all files present, populated, within budget, no
      placeholders, pointers intact. One-line summary. Include the
-     framework version info and detected CLI at the end.
+     framework version info and detected CLI at the end. If Step 6
+     found memhub and it's healthy, add a one-line memhub summary
+     (e.g. `memhub: enabled (agent_docs path)`).
    - **Yellow** — minor issues. List each with a suggested fix.
-     Still no writes. Include version info and detected CLI.
+     Still no writes. Include version info and detected CLI. memhub
+     findings from Step 6 fold into this list — they are Yellow at
+     most, never Red (memhub is optional).
    - **Red** — missing files or major drift (no `.init-version`,
      no context file at all, or several files absent). List the gaps
      and suggest re-running `$INVOKE_INIT` with the "nuke and
      rebootstrap" option. Include version info and detected CLI.
+     memhub findings stay Yellow even inside a Red K9 report.
 
 ## Notes
 
@@ -170,6 +213,8 @@ For command file paths (used in Step 6), derive from `$CLI`:
 - The version report is informational. Version mismatches between
   the project and the installed framework don't require action
   unless something actually broke.
+- memhub is optional. Its absence is never a finding. Only surface
+  memhub state when `.memhub/` exists in the repo.
 - Cross-CLI context file states are Yellow, not Red:
   - Both `CLAUDE.md` and `AGENTS.md` present and both reference
     `agent_docs/project_state.md` → initialized for both CLIs. Valid;
