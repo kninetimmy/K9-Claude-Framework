@@ -2,9 +2,9 @@
 name: check-init
 description: Read-only health check of the project_docs framework in this project
 framework: K9-Claude-Framework
-framework_version: 1.2.0
-command_version: 1.2.0
-codex_skill_version: 1.2.0
+framework_version: 1.2.1
+command_version: 1.2.1
+codex_skill_version: 1.2.1
 last_updated: 2026-05-12
 ---
 
@@ -151,6 +151,22 @@ For command file paths (used in Step 6), derive from `$CLI`:
    - Managed block marker pair is mismatched or out of order →
      Yellow. The block must be regenerated; manual edits can corrupt
      it. Suggested fix: `memhub sync-md`.
+   - `.memhub/` present, binary present, K9 enabled, but memhub's
+     durable tables are empty while `agent_docs/project_decisions.md`
+     and `project_backlog.md` are populated → Yellow. This is the
+     cross-machine clone scenario (memhub freshly installed here, K9
+     history accumulated elsewhere). Probe with `memhub decision list`
+     and `memhub task list` (both returning zero rows means empty)
+     and `wc -l` on the two K9 files (non-trivial line counts mean
+     populated). Suggested fix:
+     ```
+     memhub integrations bootstrap-k9 --dry-run   # preview parsed rows
+     memhub integrations bootstrap-k9             # apply
+     ```
+     First-install-only by design; memhub refuses on any non-empty
+     target. Do not surface this finding when the DB already has
+     rows, when the K9 files are bare skeletons, or when K9 is
+     disabled in `[integrations.k9]`.
    - `.memhub/` absent → skip this entire section. Do not warn that
      memhub is missing — it's optional.
 

@@ -4,6 +4,38 @@ All notable changes to K9-Claude-Framework are documented here. Format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] — 2026-05-12
+
+### Added
+- `/init-project` Step 8 surfaces the new `memhub integrations bootstrap-k9`
+  command when `.memhub/` exists alongside populated K9 history with an
+  empty memhub database. This is the cross-machine clone scenario where
+  memhub was just installed here but the K9 Markdown carries months of
+  decisions and backlog from elsewhere. The reminder is gated on the same
+  optionality contract as the rest of the memhub interop — silent skip
+  when memhub is absent, disabled, the DB already has rows, or the K9
+  files are bare skeletons.
+- `/check-init` Step 6 reports a new Yellow finding for the same
+  cross-machine-clone scenario, with the same suggested-fix block. Stays
+  Yellow per the existing memhub-is-optional rule (memhub findings are
+  never Red).
+
+### Changed
+- Bumped `framework_version` to `1.2.1` across all three commands.
+  `/init-project` and `/check-init` also moved their per-command
+  `command_version` and `codex_skill_version` to `1.2.1` because their
+  bodies changed; `/wrap-up` keeps `command_version: 1.2.0` /
+  `codex_skill_version: 1.2.0` because its body is unchanged.
+
+### Compatibility
+- Fully additive. Pure-Markdown K9 behavior is unchanged. The new
+  bootstrap reminders only fire inside the existing `.memhub/`-present
+  conditional branches and add no new gating to the standalone flow.
+  memhub-side support for `memhub integrations bootstrap-k9` shipped in
+  the memhub repo on 2026-05-12 (commit `58f526b`).
+
+---
+
 ## [1.2.0] — 2026-05-12
 
 ### Added

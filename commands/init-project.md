@@ -2,9 +2,9 @@
 name: init-project
 description: Bootstrap a new or cloned project with the project_docs framework (CLAUDE.md or AGENTS.md + agent_docs/)
 framework: K9-Claude-Framework
-framework_version: 1.2.0
-command_version: 1.2.0
-codex_skill_version: 1.2.0
+framework_version: 1.2.1
+command_version: 1.2.1
+codex_skill_version: 1.2.1
 last_updated: 2026-05-12
 ---
 
@@ -259,6 +259,33 @@ variables in subsequent steps — never substitute CLI names or paths inline.
      skip this reminder silently — `.memhub/` may have been carried
      in by a clone from a machine that has memhub installed but this
      machine doesn't.
+   - **memhub bootstrap check.** Still inside the `.memhub/`-present
+     branch (skip otherwise). After the `sync-md` reminder, probe
+     whether memhub's durable tables are empty while K9 has populated
+     history — the cross-machine clone scenario where memhub was just
+     installed on this machine but the K9 Markdown carries months of
+     decisions and backlog. Run:
+     - `memhub integrations check-k9 >/dev/null 2>&1 && echo enabled || echo disabled`
+     - If `enabled`, then check counts. memhub does not ship a single
+       `count` flag yet, so use the JSON listings:
+       `memhub decision list 2>/dev/null | wc -l` and
+       `memhub task list 2>/dev/null | wc -l` (both `0` means empty).
+     - Also check that K9 has populated history:
+       `wc -l agent_docs/project_decisions.md agent_docs/project_backlog.md 2>/dev/null`
+       (non-trivial line counts in both — say, >10 lines each — means
+       there is content worth bootstrapping).
+     - If memhub's DB is empty AND K9's files are populated, tell me:
+       > "memhub's database is empty but K9 has populated decisions
+       > and backlog. You can prime memhub in one shot:
+       > ```
+       > memhub integrations bootstrap-k9 --dry-run   # preview parsed rows
+       > memhub integrations bootstrap-k9             # apply
+       > ```
+       > This is first-install-only by design; memhub refuses on any
+       > non-empty target. `project_state.md` and `project_arch.md`
+       > are intentionally not parsed."
+     - If memhub is `disabled`, or the DB already has rows, or the
+       K9 files are bare skeletons, skip this reminder silently.
 
 ## Templates
 
