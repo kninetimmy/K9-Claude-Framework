@@ -18,3 +18,4 @@ desktop.ini
 /AGENTS.md.pre-init-backup*
 /CLAUDE.md.pre-init-backup*
 /agent_docs.pre-init-backup*/
+.memhub/
